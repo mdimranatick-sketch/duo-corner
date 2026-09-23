@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 // ==========================================
 // 💡 ব্যবসায়ীর বিশেষ নোটিশ (প্রয়োজনে পরিবর্তন করতে পারেন)
@@ -23,7 +23,8 @@ const products = [
     name: "লাভ পার্ল নেকলেস উইথ গিফট বক্স",
     basePrice: 849,
     originalPrice: "৳১০৪৯",
-    image: "/necklace.jpg",
+    // ৩টি ছবি অ্যারে হিসেবে দেওয়া হলো
+    images: ["/parl.jpg", "/parl1.jpg", "/parl2.jpg"],
     badge: "বিশেষ অফার"
   },
   {
@@ -31,7 +32,7 @@ const products = [
     name: "ম্যাগনেটিক কাপল ব্রুসল্যাট সেট",
     basePrice: 599,
     originalPrice: "৳৭৯৯",
-    image: "/necklace.jpg",
+    images: ["/necklace.jpg"],
     badge: "ট্রেন্ডিং"
   },
 ];
@@ -48,6 +49,9 @@ export default function Home() {
   const [trxId, setTrxId] = useState('');
   
   const [isSubmitted, setIsSubmitted] = useState(false);
+  
+  // লাভ পার্ল নেকলেসের মাল্টিপল ছবি পরিবর্তনের জন্য স্টেট
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   const deliveryCharge = deliveryArea === 'inside' ? 70 : 130;
   const productTotal = selectedProduct ? selectedProduct.basePrice * quantity : 0;
@@ -63,6 +67,7 @@ export default function Home() {
     setCustomerNote('');
     setTrxId('');
     setIsSubmitted(false);
+    setActiveImageIndex(0);
   };
 
   const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -86,7 +91,7 @@ export default function Home() {
       <div className="max-w-6xl mx-auto bg-gray-900 text-white text-xs py-2 px-4 rounded-xl mb-6 flex flex-wrap justify-between items-center gap-2 shadow-sm">
         <span className="flex items-center gap-1.5">🔒 ১০০% নিরাপদ ও ভেরিফাইড চেকআউট</span>
         <span className="flex items-center gap-1.5">🚚 স্টেডফাস্ট কুরিয়ার সার্ভিস যুক্ত</span>
-        <span className="flex items-center gap-1.5">⚡ ফেক অর্ডার সুরক্ষতি</span>
+        <span className="flex items-center gap-1.5">⚡ ফেক অর্ডার সুরক্ষিত</span>
       </div>
 
       {/* Top Header */}
@@ -97,41 +102,46 @@ export default function Home() {
 
       {/* Product Grid Section */}
       <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {products.map((product) => (
-          <div key={product.id} className="bg-white rounded-2xl shadow-xl overflow-hidden border border-pink-100 p-4 flex flex-col justify-between">
-            <div>
-              <div className="h-52 rounded-xl overflow-hidden mb-4 bg-pink-100">
-                <img 
-                  src={product.image} 
-                  alt={product.name} 
-                  className="w-full h-full object-cover"
-                />
+        {products.map((product) => {
+          // প্রথম প্রোডাক্টের ক্ষেত্রে স্লাইডার বা ডিফল্ট প্রথম ছবি দেখানোর ব্যবস্থা
+          const currentImg = product.images[0];
+
+          return (
+            <div key={product.id} className="bg-white rounded-2xl shadow-xl overflow-hidden border border-pink-100 p-4 flex flex-col justify-between">
+              <div>
+                <div className="h-52 rounded-xl overflow-hidden mb-4 bg-pink-100 relative">
+                  <img 
+                    src={currentImg} 
+                    alt={product.name} 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+
+                <span className="bg-pink-500 text-white text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">
+                  {product.badge}
+                </span>
+
+                <h2 className="text-lg font-bold text-gray-800 mt-3 mb-2 line-clamp-2">
+                  {product.name}
+                </h2>
               </div>
 
-              <span className="bg-pink-500 text-white text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">
-                {product.badge}
-              </span>
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-xl font-extrabold text-pink-600">৳{product.basePrice}</span>
+                  <span className="text-gray-400 line-through text-sm">{product.originalPrice}</span>
+                </div>
 
-              <h2 className="text-lg font-bold text-gray-800 mt-3 mb-2 line-clamp-2">
-                {product.name}
-              </h2>
-            </div>
-
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <span className="text-xl font-extrabold text-pink-600">৳{product.basePrice}</span>
-                <span className="text-gray-400 line-through text-sm">{product.originalPrice}</span>
+                <button 
+                  onClick={() => handleOpenModal(product)}
+                  className="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 rounded-xl transition duration-300 shadow-md text-sm cursor-pointer"
+                >
+                  অর্ডার করুন (Order Now)
+                </button>
               </div>
-
-              <button 
-                onClick={() => handleOpenModal(product)}
-                className="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 rounded-xl transition duration-300 shadow-md text-sm cursor-pointer"
-              >
-                অর্ডার করুন (Order Now)
-              </button>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Advanced Enterprise Checkout Popup Modal */}
@@ -147,6 +157,39 @@ export default function Home() {
 
             {!isSubmitted ? (
               <div>
+                {/* Product Image Preview in Modal with multi-image support */}
+                {selectedProduct.images && selectedProduct.images.length > 1 ? (
+                  <div className="mb-4">
+                    <div className="h-48 rounded-xl overflow-hidden bg-pink-50 mb-2 border">
+                      <img 
+                        src={selectedProduct.images[activeImageIndex]} 
+                        alt={selectedProduct.name} 
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex gap-2 justify-center">
+                      {selectedProduct.images.map((img: string, idx: number) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setActiveImageIndex(idx)}
+                          className={`w-14 h-14 rounded-lg overflow-hidden border-2 cursor-pointer ${activeImageIndex === idx ? 'border-pink-600 scale-105' : 'border-gray-200 opacity-70'}`}
+                        >
+                          <img src={img} alt="thumb" className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-40 rounded-xl overflow-hidden bg-pink-50 mb-4">
+                    <img 
+                      src={selectedProduct.images[0]} 
+                      alt={selectedProduct.name} 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between mb-1">
                   <h3 className="text-2xl font-bold text-gray-800">অর্ডার কনফার্ম করুন</h3>
                   <span className="text-[10px] bg-green-100 text-green-700 font-bold px-2 py-0.5 rounded-full">সিকিওর</span>
@@ -354,4 +397,3 @@ export default function Home() {
     </main>
   )
 }
-<img src="/parl.jpg" alt="Product" />
