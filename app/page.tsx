@@ -354,3 +354,4 @@ export default function Home() {
     </main>
   )
 }
+<img src="/parl.jpg" alt="Product" />
