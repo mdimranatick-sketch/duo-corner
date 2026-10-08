@@ -5,11 +5,9 @@ import path from 'path';
 const STEADFAST_API_KEY = process.env.STEADFAST_API_KEY || 'nhebmum6ll3aeirxkoa0djqscqckyjn3';
 const STEADFAST_SECRET_KEY = process.env.STEADFAST_SECRET_KEY || '9clfsi0vrhrbzwupeojrymau';
 
-// ফাইল পাথ (লোকাল ফাইল বা ডাটা সেভ করার জন্য)
 const filePath = path.join(process.cwd(), 'orders.json');
 
-// ডাটা রিড করার ফাংশন
-function getOrders() {
+function getOrders(): any[] {
   try {
     if (fs.existsSync(filePath)) {
       const data = fs.readFileSync(filePath, 'utf8');
@@ -21,8 +19,7 @@ function getOrders() {
   return [];
 }
 
-// ডাটা রাইট করার ফাংশন
-function saveOrders(orders: any[]) {
+function saveOrders(orders: any[]): void {
   try {
     fs.writeFileSync(filePath, JSON.stringify(orders, null, 2));
   } catch (err) {
@@ -33,7 +30,7 @@ function saveOrders(orders: any[]) {
 // ১. কাস্টমার অর্ডার সাবমিট করলে (POST)
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body: any = await request.json();
     const orders = getOrders();
     
     const orderId = 'DUO-' + Math.floor(100000 + Math.random() * 900000);
@@ -51,7 +48,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, orderId });
   } catch (error: any) {
     console.error('POST Error:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error?.message || 'Unknown error' }, { status: 500 });
   }
 }
 
@@ -61,14 +58,15 @@ export async function GET() {
     const orders = getOrders();
     return NextResponse.json(orders);
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error?.message || 'Unknown error' }, { status: 500 });
   }
 }
 
 // ৩. অ্যাডমিন প্যানেল থেকে এক ক্লিকে Steadfast কুরিয়ারে পাঠানোর জন্য (PUT)
 export async function PUT(request: Request) {
   try {
-    const { id } = await request.json();
+    const body: any = await request.json();
+    const id = body?.id;
     const orders = getOrders();
 
     const order = orders.find((o: any) => o.id === id);
@@ -113,6 +111,6 @@ export async function PUT(request: Request) {
 
   } catch (error: any) {
     console.error('Steadfast Error:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: `500` });
+    return NextResponse.json({ success: false, error: error?.message || 'Unknown error' }, { status: 500 });
   }
 }
