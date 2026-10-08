@@ -3,9 +3,8 @@ import { cookies } from 'next/headers';
 
 export async function POST(request: Request) {
   try {
-    const { username, password } = await request.json();
+    const { username, password }: { username?: string; password?: string } = await request.json();
 
-    // আপনি এখানে আপনার ইচ্ছামতো এডমিন ও মডারেটর ইউজারনেম-পাসওয়ার্ড সেট করতে পারেন
     let role = '';
     if (username === 'admin' && password === 'duocorner123') {
       role = 'admin';
@@ -14,11 +13,13 @@ export async function POST(request: Request) {
     }
 
     if (role) {
-      // কুকিতে রোল এবং স্ট্যাটাস সেভ করে দেওয়া হলো
-      cookies().set('duo_admin_session', role, {
+      const cookieStore = await cookies();
+      cookieStore.set({
+        name: 'duo_admin_session',
+        value: role,
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        maxAge: 60 * 60 * 24 * 7, // ৭ দিন
+        maxAge: 60 * 60 * 24 * 7,
         path: '/',
       });
 
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: false, message: 'ভুল ইউজারনেম বা পাসওয়ার্ড!' }, { status: 401 });
-  } catch (err) {
-    return NextResponse.json({ success: false, message: 'Server Error' }, { status: 500 });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, message: err?.message || 'Server Error' }, { status: 500 });
   }
 }

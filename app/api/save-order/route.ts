@@ -27,7 +27,6 @@ function saveOrders(orders: any[]): void {
   }
 }
 
-// ১. কাস্টমার অর্ডার সাবমিট করলে (POST)
 export async function POST(request: Request) {
   try {
     const body: any = await request.json();
@@ -52,7 +51,6 @@ export async function POST(request: Request) {
   }
 }
 
-// ২. অ্যাডমিন প্যানেলে অর্ডার লিস্ট দেখানোর জন্য (GET)
 export async function GET() {
   try {
     const orders = getOrders();
@@ -62,7 +60,6 @@ export async function GET() {
   }
 }
 
-// ৩. অ্যাডমিন প্যানেল থেকে এক ক্লিকে Steadfast কুরিয়ারে পাঠানোর জন্য (PUT)
 export async function PUT(request: Request) {
   try {
     const body: any = await request.json();
@@ -111,6 +108,7 @@ export async function PUT(request: Request) {
 
   } catch (error: any) {
     console.error('Steadfast Error:', error);
+    // এখানে স্ট্যাটাস কোড 500 সংখ্যা হিসেবে দেওয়া হয়েছে (আগে ভুলবশত স্ট্রিং ছিল)
     return NextResponse.json({ success: false, error: error?.message || 'Unknown error' }, { status: 500 });
   }
 }
