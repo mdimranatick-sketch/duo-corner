@@ -2,113 +2,29 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-const STEADFAST_API_KEY = process.env.STEADFAST_API_KEY || 'nhebmum6ll3aeirxkoa0djqscqckyjn3';
-const STEADFAST_SECRET_KEY = process.env.STEADFAST_SECRET_KEY || '9clfsi0vrhrbzwupeojrymau';
-
-const filePath = path.join(process.cwd(), 'orders.json');
-
-function getOrders(): any[] {
-  try {
-    if (fs.existsSync(filePath)) {
-      const data = fs.readFileSync(filePath, 'utf8');
-      return JSON.parse(data);
-    }
-  } catch (err) {
-    console.error('Read error:', err);
-  }
-  return [];
-}
-
-function saveOrders(orders: any[]): void {
-  try {
-    fs.writeFileSync(filePath, JSON.stringify(orders, null, 2));
-  } catch (err) {
-    console.error('Write error:', err);
-  }
-}
-
 export async function POST(request: Request) {
   try {
     const body: any = await request.json();
-    const orders = getOrders();
     
-    const orderId = 'DUO-' + Math.floor(100000 + Math.random() * 900000);
+    const filePath = path.join(process.cwd(), 'orders.json');
+    let orders: any[] = [];
     
+    if (fs.existsSync(filePath)) {
+      const fileData = fs.readFileSync(filePath, 'utf8');
+      orders = JSON.parse(fileData);
+    }
+
     const newOrder = {
-      id: orderId,
+      id: Date.now(),
       ...body,
-      status: 'Processing',
-      createdAt: new Date().toLocaleString('bn-BD', { timeZone: 'Asia/Dhaka' })
+      createdAt: new Date().toISOString(),
     };
 
     orders.unshift(newOrder);
-    saveOrders(orders);
+    fs.writeFileSync(filePath, JSON.stringify(orders, null, 2));
 
-    return NextResponse.json({ success: true, orderId });
-  } catch (error: any) {
-    console.error('POST Error:', error);
-    return NextResponse.json({ success: false, error: error?.message || 'Unknown error' }, { status: 500 });
-  }
-}
-
-export async function GET() {
-  try {
-    const orders = getOrders();
-    return NextResponse.json(orders);
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error?.message || 'Unknown error' }, { status: 500 });
-  }
-}
-
-export async function PUT(request: Request) {
-  try {
-    const body: any = await request.json();
-    const id = body?.id;
-    const orders = getOrders();
-
-    const order = orders.find((o: any) => o.id === id);
-
-    if (!order) {
-      return NextResponse.json({ success: false, error: 'অর্ডারটি পাওয়া যায়নি!' }, { status: 404 });
-    }
-
-    const steadfastPayload = {
-      invoice: order.id,
-      recipient_name: order.name,
-      recipient_phone: order.phone,
-      recipient_address: `${order.address}, থানা: ${order.thana || ''}, জেলা: ${order.district || ''}`,
-      cod_amount: order.totalPrice || 0,
-      note: `${order.productName || 'Duo Corner Product'} (পরিমাণ: ${order.quantity || 1})`
-    };
-
-    const steadfastResponse = await fetch('https://portal.packzy.com/api/v1/create_order', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Api-Key': STEADFAST_API_KEY,
-        'Secret-Key': STEADFAST_SECRET_KEY,
-      },
-      body: JSON.stringify(steadfastPayload),
-    });
-
-    const result = await steadfastResponse.json();
-
-    if (result.status === 200 || result.success) {
-      const consignmentId = result.consignment?.consignment_id || 'N/A';
-      order.status = `Sent to Steadfast (ID: ${consignmentId})`;
-      saveOrders(orders);
-
-      return NextResponse.json({ success: true, consignmentId: consignmentId });
-    } else {
-      return NextResponse.json({ 
-        success: false, 
-        error: result.message || 'Steadfast এন্ট্রি নিতে ব্যর্থ হয়েছে।' 
-      });
-    }
-
-  } catch (error: any) {
-    console.error('Steadfast Error:', error);
-    // এখানে স্ট্যাটাস কোড 500 সংখ্যা হিসেবে দেওয়া হয়েছে (আগে ভুলবশত স্ট্রিং ছিল)
-    return NextResponse.json({ success: false, error: error?.message || 'Unknown error' }, { status: 500 });
+    return NextResponse.json({ success: true, order: newOrder });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, message: err.message || 'Error saving order' }, { status: 500 });
   }
 }
