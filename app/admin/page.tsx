@@ -12,7 +12,7 @@ type Order = {
   thana: string;
   district: string;
   totalPrice: number;
-  status: string;
+  status?: string;
 };
 
 export default function AdminDashboard() {
@@ -140,7 +140,7 @@ export default function AdminDashboard() {
                         ৳{order.totalPrice}
                       </td>
                       <td className="p-4 md:p-5">
-                        {order.status.includes('Sent to Steadfast') ? (
+                        {order.status?.includes('Sent to Steadfast') ? (
                           <span className="bg-green-100 text-green-700 font-bold px-3 py-1 rounded-xl text-xs inline-block shadow-sm">
                             ✓ {order.status}
                           </span>
@@ -151,7 +151,7 @@ export default function AdminDashboard() {
                         )}
                       </td>
                       <td className="p-4 md:p-5 text-center">
-                        {order.status.includes('Sent to Steadfast') ? (
+                        {order.status?.includes('Sent to Steadfast') ? (
                           <span className="text-green-600 font-bold text-xs bg-green-50 px-3 py-2 rounded-xl border border-green-200 inline-block">
                             ✅ কুরিয়ারে এন্ট্রি হয়েছে
                           </span>

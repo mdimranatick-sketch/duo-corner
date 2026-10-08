@@ -39,6 +39,7 @@ export async function POST(request: Request) {
     const newOrder: Order = {
       id: Date.now(),
       ...body,
+      status: 'Pending',
       createdAt: new Date().toISOString(),
     };
 
