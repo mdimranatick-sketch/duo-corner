@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function AdminLoginPage() {
   const [username, setUsername] = useState('');
@@ -28,8 +29,8 @@ export default function AdminLoginPage() {
       } else {
         setError(data.message || 'ভুল ইউজারনেম বা পাসওয়ার্ড!');
       }
-    } catch (err) {
-      setError('সার্ভার এরर! আবার চেষ্টা করুন।');
+    } catch {
+      setError('সার্ভার এরর! আবার চেষ্টা করুন।');
     } finally {
       setLoading(false);
     }
@@ -87,9 +88,9 @@ export default function AdminLoginPage() {
         </form>
 
         <div className="mt-6 text-center">
-          <a href="/" className="text-xs font-semibold text-pink-600 hover:underline">
+          <Link href="/" className="text-xs font-semibold text-pink-600 hover:underline">
             ← Back to Store (হোম পেজে যান)
-          </a>
+          </Link>
         </div>
       </div>
     </main>
