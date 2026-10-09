@@ -26,7 +26,8 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: false, message: 'ভুল ইউজারনেম বা পাসওয়ার্ড!' }, { status: 401 });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, message: err.message || 'Server Error' }, { status: 500 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Server Error';
+    return NextResponse.json({ success: false, message }, { status: 500 });
   }
 }

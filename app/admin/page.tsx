@@ -1,31 +1,55 @@
 'use client';
 import { useState, useEffect } from 'react';
 
-export default function AdminDashboard() {
-  const [orders, setOrders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
+type Order = {
+  id: string | number;
+  createdAt?: string;
+  name: string;
+  phone: string;
+  productName: string;
+  quantity: number;
+  address: string;
+  thana: string;
+  district: string;
+  totalPrice: number;
+  status?: string;
+};
 
-  const fetchOrders = async () => {
-    setLoading(true);
+export default function AdminDashboard() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | number | null>(null);
+
+  const fetchOrders = async (): Promise<Order[]> => {
     try {
       const res = await fetch('/api/save-order');
       const data = await res.json();
-      if (Array.isArray(data)) {
-        setOrders(data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch orders', err);
-    } finally {
-      setLoading(false);
+      return Array.isArray(data) ? (data as Order[]) : [];
+    } catch {
+      console.error('Failed to fetch orders');
+      return [];
     }
   };
 
+  const refreshOrders = async () => {
+    setLoading(true);
+    setOrders(await fetchOrders());
+    setLoading(false);
+  };
+
   useEffect(() => {
-    fetchOrders();
+    let active = true;
+    void fetchOrders().then((data) => {
+      if (!active) return;
+      setOrders(data);
+      setLoading(false);
+    });
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const sendToSteadfast = async (id: string) => {
+  const sendToSteadfast = async (id: string | number) => {
     if (!confirm('আপনি কি নিশ্চিতভাবে এই অর্ডারটি Steadfast কুরিয়ারে পাঠাতে চান?')) return;
     
     setActionLoading(id);
@@ -38,11 +62,11 @@ export default function AdminDashboard() {
       const data = await res.json();
       if (data.success) {
         alert(`সফল! কনসাইনমেন্ট আইডি: ${data.consignmentId}`);
-        fetchOrders();
+        setOrders(await fetchOrders());
       } else {
-        alert(`ব্যর্থ হয়েছে: ${data.error}`);
+        alert(`ব্যর্থ হয়েছে: ${data.error}`);
       }
-    } catch (err) {
+    } catch {
       alert('সার্ভার এরর!');
     } finally {
       setActionLoading(null);
@@ -64,7 +88,7 @@ export default function AdminDashboard() {
             </h1>
           </div>
           <button 
-            onClick={fetchOrders}
+            onClick={refreshOrders}
             className="bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 text-white font-bold px-6 py-3 rounded-2xl shadow-md transition cursor-pointer flex items-center gap-2 text-sm"
           >
             🔄 লিস্ট রিফ্রেশ করুন
@@ -116,7 +140,7 @@ export default function AdminDashboard() {
                         ৳{order.totalPrice}
                       </td>
                       <td className="p-4 md:p-5">
-                        {order.status.includes('Sent to Steadfast') ? (
+                        {order.status?.includes('Sent to Steadfast') ? (
                           <span className="bg-green-100 text-green-700 font-bold px-3 py-1 rounded-xl text-xs inline-block shadow-sm">
                             ✓ {order.status}
                           </span>
@@ -127,7 +151,7 @@ export default function AdminDashboard() {
                         )}
                       </td>
                       <td className="p-4 md:p-5 text-center">
-                        {order.status.includes('Sent to Steadfast') ? (
+                        {order.status?.includes('Sent to Steadfast') ? (
                           <span className="text-green-600 font-bold text-xs bg-green-50 px-3 py-2 rounded-xl border border-green-200 inline-block">
                             ✅ কুরিয়ারে এন্ট্রি হয়েছে
                           </span>
