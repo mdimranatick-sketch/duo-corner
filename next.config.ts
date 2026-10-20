@@ -9,8 +9,7 @@ const withPWA = nextPWA({
 });
 
 const nextConfig: NextConfig = {
-  // Turbopack কনফিগ এরর দূর করার জন্য এটি যোগ করতে হবে
-  turbopack: {}, 
+  // আপনার অন্যান্য কনফিগারেশন থাকলে এখানে রাখতে পারেন
 };
 
 export default withPWA(nextConfig);

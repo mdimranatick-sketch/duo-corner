@@ -3,7 +3,7 @@ import { Geist, Geist_Mono, Hind_Siliguri } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
 // Clerk-কে প্রজেক্টে নিয়ে আসলাম
-import { ClerkProvider } from '@clerk/nextjs'; 
+import { ClerkProvider } from "@clerk/nextjs";
 // ব্যাকস্পেস বা ব্যাক বাটন আটকানোর কম্পোনেন্ট ইমপোর্ট করা হলো
 import BackspacePreventer from "@/components/BackspacePreventer";
 

@@ -21,7 +21,7 @@ export async function GET() {
   }
 }
 
-// POST: অ্যাডমিন প্যানেল থেকে নতুন প্রোডাক্ট এবং A-Z সিকোয়েন্স অনুযায়ী ডেটা সেভ করা
+// POST: অ্যাডমিন প্যানেল থেকে নতুন প্রোডাক্ট সেভ করা
 export async function POST(request: Request) {
   try {
     const body = await request.json();
