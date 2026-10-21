@@ -1,21 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Hind_Siliguri } from "next/font/google";
+import { Hind_Siliguri } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
-// Clerk-কে প্রজেক্টে নিয়ে আসলাম
 import { ClerkProvider } from "@clerk/nextjs";
-// ব্যাকস্পেস বা ব্যাক বাটন আটকানোর কম্পোনেন্ট ইমপোর্ট করা হলো
 import BackspacePreventer from "@/components/BackspacePreventer";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 const hindSiliguri = Hind_Siliguri({
   variable: "--font-hind-siliguri",
@@ -30,7 +18,6 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
 };
 
-// কনসোলের ওয়ার্নিং ফিক্স করার জন্য themeColor কে এখানে viewport এ রাখা হয়েছে
 export const viewport: Viewport = {
   themeColor: "#e11d48",
 };
@@ -41,13 +28,9 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    // পুরো ওয়েবসাইটকে ClerkProvider দিয়ে মুড়িয়ে দিলাম
     <ClerkProvider>
       <html lang="en">
-        <body
-          className={`${geistSans.variable} ${geistMono.variable} ${hindSiliguri.variable} antialiased`}
-        >
-          {/* ব্যাকস্পেস বা ব্যাক বাটন প্রেস করলে সাইট থেকে বের হওয়া রোধ করতে এটি যুক্ত করা হলো */}
+        <body className={`${hindSiliguri.variable} antialiased font-sans`}>
           <BackspacePreventer />
           {children}
         </body>

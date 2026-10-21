@@ -6,16 +6,21 @@
   color-scheme: light;
 }
 
+/* Tailwind CSS v4 directive; allow Stylelint's unknown-at-rule check. */
+/* stylelint-disable at-rule-no-unknown */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans), var(--font-hind-siliguri), Arial, Helvetica, sans-serif;
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-hind-siliguri), sans-serif;
 
-  --shadow-soft: 0 1px 2px rgba(28, 25, 23, 0.04), 0 6px 20px -8px rgba(244, 63, 94, 0.1);
-  --shadow-card: 0 1px 2px rgba(28, 25, 23, 0.04), 0 12px 32px -12px rgba(28, 25, 23, 0.12);
-  --shadow-lift: 0 2px 4px rgba(28, 25, 23, 0.05), 0 20px 48px -16px rgba(244, 63, 94, 0.22);
+  --shadow-soft:
+    0 1px 2px rgba(28, 25, 23, 0.04), 0 6px 20px -8px rgba(28, 25, 23, 0.04);
+  --shadow-card:
+    0 1px 2px rgba(28, 25, 23, 0.04), 0 12px 32px -12px rgba(28, 25, 23, 0.05);
+  --shadow-lift:
+    0 2px 4px rgba(28, 25, 23, 0.05), 0 20px 48px -16px rgba(28, 25, 23, 0.06);
 }
+/* stylelint-enable at-rule-no-unknown */
 
 body {
   background: var(--background);
@@ -24,14 +29,17 @@ body {
 }
 
 /* ব্রাউজারের ইনপুট ও টেক্সটএিয়ার লেখা একদম স্পষ্ট ও গাঢ় কালো করার জন্য */
-input, textarea, select {
+input,
+textarea,
+select {
   color: #000000 !important;
   background-color: #ffffff !important;
   opacity: 1 !important;
   -webkit-text-fill-color: #000000 !important;
 }
 
-input::placeholder, textarea::placeholder {
+input::placeholder,
+textarea::placeholder {
   color: #6b7280 !important;
   opacity: 1 !important;
 }
