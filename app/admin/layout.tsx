@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useUser, useClerk } from "@clerk/nextjs";
 import {
   LayoutDashboard,
   Package,
@@ -25,14 +26,66 @@ import {
   Sparkles,
 } from "lucide-react";
 
+// আপনার অনুমোদিত ১০টি অ্যাডমিন ইমেইলের লিস্ট (প্রথম ইমেইলটি আপনার দেওয়া)
+const ADMIN_EMAILS = [
+  "mdimranatick@gmail.com",
+  "admin2@gmail.com",
+  "admin3@gmail.com",
+  "admin4@gmail.com",
+  "admin5@gmail.com",
+  "admin6@gmail.com",
+  "admin7@gmail.com",
+  "admin8@gmail.com",
+  "admin9@gmail.com",
+  "admin10@gmail.com",
+];
+
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { isLoaded, isSignedIn, user } = useUser();
+  const { signOut } = useClerk();
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+  // ক্লাক অথেন্টিকেশন ও অ্যাডমিন ইমেইল ভ্যালিডেশন চেক
+  useEffect(() => {
+    if (isLoaded) {
+      if (!isSignedIn) {
+        router.push("/sign-in");
+        return;
+      }
+      const userEmail = user?.primaryEmailAddress?.emailAddress;
+      if (!userEmail || !ADMIN_EMAILS.includes(userEmail)) {
+        alert("দুঃখিত! আপনার অ্যাডমিন প্যানেল অ্যাক্সেস করার অনুমতি নেই।");
+        router.push("/");
+      }
+    }
+  }, [isLoaded, isSignedIn, user, router]);
+
+  // লোডিং বা আনঅথরাইজড অবস্থায় ব্ল্যাঙ্ক বা লোডিং স্ক্রিন দেখাবে
+  if (!isLoaded || !isSignedIn) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-4 border-rose-500/20 border-t-rose-500 rounded-full animate-spin mx-auto"></div>
+          <p className="text-xs text-slate-400 font-bold">
+            অ্যাডমিন সিকিউরিটি ভেরিফিকেশন চলছে...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const currentUserEmail = user?.primaryEmailAddress?.emailAddress || "";
+  if (!ADMIN_EMAILS.includes(currentUserEmail)) {
+    return null;
+  }
 
   const navItems = [
     { name: "Overview Dashboard", href: "/admin", icon: LayoutDashboard },
@@ -113,11 +166,13 @@ export default function AdminLayout({
 
         <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
           <div className="text-[11px] text-slate-400">
-            <p className="font-bold text-white">Md Imran Hossain</p>
+            <p className="font-bold text-white">
+              {user?.fullName || "Md Imran Hossain"}
+            </p>
             <p className="text-emerald-400 text-[10px]">● Super Admin Online</p>
           </div>
           <button
-            onClick={() => alert("Logged out successfully!")}
+            onClick={() => signOut(() => router.push("/"))}
             className="p-2 bg-slate-800 hover:bg-rose-600/20 hover:text-rose-400 rounded-xl text-slate-400 transition cursor-pointer"
             title="Logout"
           >
