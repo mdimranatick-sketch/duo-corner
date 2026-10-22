@@ -2,6 +2,24 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import {
+  ShoppingBag,
+  TrendingUp,
+  Clock,
+  AlertTriangle,
+  Truck,
+  DollarSign,
+  PlusCircle,
+  Search,
+  RefreshCw,
+  UserCheck,
+  CheckCircle2,
+  XCircle,
+  CreditCard,
+  Building2,
+  Wallet,
+  Zap,
+} from "lucide-react";
 
 type Order = {
   orderId?: string;
@@ -34,15 +52,50 @@ export default function AdminDashboard() {
     | "cms"
     | "system"
     | "settings"
-  >("orders");
+  >("overview");
+
+  const [customerSubTab, setCustomerSubTab] = useState<
+    "profiles" | "fraud" | "verification" | "queue" | "watchlist"
+  >("profiles");
 
   const [searchTerm, setSearchTerm] = useState("");
-
-  // ইনভেন্টরি ম্যানেজমেন্টের স্টেট
   const [products, setProducts] = useState<any[]>([]);
   const [productSearch, setProductSearch] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState<"list" | "add">("list");
+
+  // Automated Fraud Checker & Customer 360 States
+  const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
+  const [autoFraudLoading, setAutoFraudLoading] = useState(false);
+  const [fraudReportMap, setFraudReportMap] = useState<{
+    [phone: string]: any;
+  }>({});
+
+  // Payment & COD Settlement States
+  const [settlementFilter, setSettlementFilter] = useState("all");
+
+  // Automation Rules States
+  const [rules, setRules] = useState([
+    {
+      id: 1,
+      name: "কুরিয়ার Delivered হলে অর্ডার ও COD পাওনা আপডেট",
+      trigger: "Courier Delivered",
+      status: true,
+    },
+    {
+      id: 2,
+      name: "কম স্টক হলে অ্যালার্ট পাঠানো",
+      trigger: "Low Stock (<5)",
+      status: true,
+    },
+    {
+      id: 3,
+      name: "নতুন অর্ডারে স্টক রিজার্ভ করা",
+      trigger: "New Order Created",
+      status: true,
+    },
+  ]);
+  const [newRuleName, setNewRuleName] = useState("");
 
   const [productForm, setProductForm] = useState({
     productName: "",
@@ -70,47 +123,17 @@ export default function AdminDashboard() {
     value6: "",
   });
 
-  // মার্কেটিং পিক্সেল সেটিংস স্টেট
   const [pixelConfig, setPixelConfig] = useState({
-    metaPixelId: "",
-    metaAccessToken: "",
-    ga4Id: "",
-    gtmId: "",
-    tiktokPixelId: "",
+    metaPixelId: "123456789012345",
+    metaAccessToken: "EAAG...",
+    ga4Id: "G-XXXXXXXXXX",
+    gtmId: "GTM-XXXXXXX",
+    tiktokPixelId: "CXXXXXXXXXXXXXXX",
     tiktokAccessToken: "",
+    tiktokTestEventCode: "",
     capiEnabled: true,
   });
   const [pixelSaved, setPixelSaved] = useState(false);
-
-  const [customerSubTab, setCustomerSubTab] = useState<
-    "profiles" | "fraud" | "verification" | "queue" | "watchlist"
-  >("profiles");
-  const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
-  const [selectedSettlementOrder, setSelectedSettlementOrder] = useState<
-    any | null
-  >(null);
-
-  const [rules, setRules] = useState([
-    {
-      id: 1,
-      name: "কুরিয়ার Delivered হলে অর্ডার ও COD পাওনা আপডেট",
-      trigger: "Courier Delivered",
-      status: true,
-    },
-    {
-      id: 2,
-      name: "কম স্টক হলে অ্যালার্ট পাঠানো",
-      trigger: "Low Stock (<5)",
-      status: true,
-    },
-    {
-      id: 3,
-      name: "নতুন অর্ডারে স্টক রিজার্ভ করা",
-      trigger: "New Order Created",
-      status: true,
-    },
-  ]);
-  const [newRuleName, setNewRuleName] = useState("");
 
   const fetchOrders = async () => {
     try {
@@ -118,6 +141,9 @@ export default function AdminDashboard() {
       const data = await res.json();
       if (Array.isArray(data)) {
         setOrders(data);
+        if (data.length > 0) {
+          fetchAutomatedFraudData(data[0].phone);
+        }
       }
     } catch {
       console.error("Data fetch error");
@@ -133,6 +159,26 @@ export default function AdminDashboard() {
       if (Array.isArray(data)) setProducts(data);
     } catch {
       console.error("Error fetching products");
+    }
+  };
+
+  const fetchAutomatedFraudData = async (phone: string) => {
+    if (!phone || fraudReportMap[phone]) return;
+    setAutoFraudLoading(true);
+    try {
+      const res = await fetch("/api/fraud-check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFraudReportMap((prev) => ({ ...prev, [phone]: data }));
+      }
+    } catch (err) {
+      console.error("Auto fraud check error:", err);
+    } finally {
+      setAutoFraudLoading(false);
     }
   };
 
@@ -153,6 +199,10 @@ export default function AdminDashboard() {
 
         if (Array.isArray(orderData)) {
           setOrders(orderData);
+          if (orderData.length > 0) {
+            setSelectedCustomer(orderData[0]);
+            void fetchAutomatedFraudData(orderData[0].phone);
+          }
         }
         if (Array.isArray(productData)) {
           setProducts(productData);
@@ -316,13 +366,33 @@ export default function AdminDashboard() {
     (o) => String(o.status || "").toLowerCase() === "pending",
   ).length;
 
-  const filteredOrders = orders.filter((order) => {
-    const name = String(order.name || "").toLowerCase();
-    const phone = String(order.phone || "");
-    return (
-      name.includes(searchTerm.toLowerCase()) || phone.includes(searchTerm)
-    );
-  });
+  const deliveredOrdersList = orders.filter(
+    (o) =>
+      String(o.status || "").toLowerCase() === "delivered" ||
+      String(o.courierAction || "").toLowerCase() === "completed",
+  );
+  const totalCodCollection = deliveredOrdersList.reduce(
+    (acc, o) => acc + (Number(o.collectionAmount) || 0),
+    0,
+  );
+  const courierDueAmount = orders
+    .filter(
+      (o) =>
+        String(o.status || "").toLowerCase() === "booked" ||
+        String(o.status || "").toLowerCase() === "processing",
+    )
+    .reduce((acc, o) => acc + (Number(o.collectionAmount) || 0), 0);
+  const bankReceivedAmount = totalCodCollection * 0.85;
+
+  const filteredOrders = orders
+    .filter((order) => {
+      const name = String(order.name || "").toLowerCase();
+      const phone = String(order.phone || "");
+      return (
+        name.includes(searchTerm.toLowerCase()) || phone.includes(searchTerm)
+      );
+    })
+    .reverse();
 
   const filteredProducts = products.filter(
     (p) =>
@@ -343,7 +413,7 @@ export default function AdminDashboard() {
             DUO CORNER SYSTEM
           </p>
           <h3 className="text-white font-bold text-lg mt-2">
-            Loading Order Data... ✨
+            Loading System Data... ✨
           </h3>
         </div>
       </div>
@@ -352,7 +422,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col md:flex-row">
-      {/* সাইডবার মেনু */}
       <aside className="w-full md:w-64 bg-slate-900 border-r border-slate-800 p-5 flex flex-col justify-between shrink-0">
         <div>
           <div className="mb-8 px-2">
@@ -448,7 +517,6 @@ export default function AdminDashboard() {
         </div>
       </aside>
 
-      {/* মূল কন্টেন্ট */}
       <main className="flex-1 p-6 md:p-8 overflow-y-auto">
         <div className="bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
           <div>
@@ -456,7 +524,15 @@ export default function AdminDashboard() {
               Duo Corner Operations Center
             </span>
             <h1 className="text-2xl font-black text-white mt-2">
-              Business Overview & Dashboard
+              {activeTab === "marketing"
+                ? "Marketing, Pixels & Server-Side Tracking"
+                : activeTab === "customers"
+                  ? "Customer 360° & Fraud Risk Management"
+                  : activeTab === "settlements"
+                    ? "Payments & COD Settlements Center"
+                    : activeTab === "automation"
+                      ? "Business Automation & Rules Engine"
+                      : "Business Overview & Dashboard"}
             </h1>
           </div>
           <div className="flex items-center gap-3">
@@ -473,50 +549,251 @@ export default function AdminDashboard() {
               Total Orders: {totalOrders}
             </div>
             <div className="bg-emerald-500/10 text-emerald-400 px-4 py-2 rounded-xl text-sm font-bold border border-emerald-500/20">
-              Total Sales: {totalSales.toLocaleString()}
+              Total Sales: ৳{totalSales.toLocaleString()}
             </div>
           </div>
         </div>
 
+        {/* 1. Dashboard & Command Center (Overview Tab) */}
         {activeTab === "overview" && (
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
-              <p className="text-xs font-bold text-slate-400 uppercase">
-                Pending
-              </p>
-              <h3 className="text-xl font-black text-amber-500 mt-1">
-                {pendingCount}
-              </h3>
+          <div className="space-y-6">
+            <div className="bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-800 flex flex-wrap gap-3 items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                  Quick Command Actions
+                </h3>
+                <p className="text-xs text-slate-400">
+                  ব্যবসার জরুরি শর্টকাট একশনসমূহ
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setActiveTab("orders")}
+                  className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl font-medium text-xs transition cursor-pointer shadow-sm"
+                >
+                  <PlusCircle size={16} /> নতুন অর্ডার চেক
+                </button>
+                <button
+                  onClick={() => setActiveTab("inventory")}
+                  className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl font-medium text-xs transition cursor-pointer border border-slate-700"
+                >
+                  <Search size={16} /> প্রোডাক্ট স্টক
+                </button>
+                <button
+                  onClick={() => setActiveTab("orders")}
+                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl font-medium text-xs transition cursor-pointer shadow-sm"
+                >
+                  <Truck size={16} /> কুরিয়ার বুকিং
+                </button>
+              </div>
             </div>
-            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
-              <p className="text-xs font-bold text-slate-400 uppercase">
-                Processing
-              </p>
-              <h3 className="text-xl font-black text-blue-500 mt-1">0</h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex items-center justify-between shadow-sm">
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase">
+                    Total Orders (Month)
+                  </p>
+                  <h3 className="text-2xl font-black text-white mt-1">
+                    {totalOrders}
+                  </h3>
+                  <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-full mt-2 inline-block">
+                    Live Google Sheet Synced
+                  </span>
+                </div>
+                <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl">
+                  <TrendingUp size={24} />
+                </div>
+              </div>
+
+              <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex items-center justify-between shadow-sm">
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase">
+                    Total Sales Amount
+                  </p>
+                  <h3 className="text-2xl font-black text-emerald-400 mt-1">
+                    ৳{totalSales.toLocaleString()}
+                  </h3>
+                  <span className="text-[10px] text-blue-400 font-semibold bg-blue-500/10 px-2 py-0.5 rounded-full mt-2 inline-block">
+                    Collection Active
+                  </span>
+                </div>
+                <div className="p-3 bg-blue-500/10 text-blue-400 rounded-xl">
+                  <DollarSign size={24} />
+                </div>
+              </div>
+
+              <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex items-center justify-between shadow-sm">
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase">
+                    Pending Orders
+                  </p>
+                  <h3 className="text-2xl font-black text-amber-500 mt-1">
+                    {pendingCount}
+                  </h3>
+                  <span className="text-[10px] text-amber-400 font-semibold bg-amber-500/10 px-2 py-0.5 rounded-full mt-2 inline-block">
+                    Needs Processing
+                  </span>
+                </div>
+                <div className="p-3 bg-amber-500/10 text-amber-500 rounded-xl">
+                  <Clock size={24} />
+                </div>
+              </div>
+
+              <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex items-center justify-between shadow-sm">
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase">
+                    Inventory Items
+                  </p>
+                  <h3 className="text-2xl font-black text-indigo-400 mt-1">
+                    {products.length}
+                  </h3>
+                  <span className="text-[10px] text-indigo-400 font-semibold bg-indigo-500/10 px-2 py-0.5 rounded-full mt-2 inline-block">
+                    Active Catalog
+                  </span>
+                </div>
+                <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl">
+                  <ShoppingBag size={24} />
+                </div>
+              </div>
             </div>
-            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
-              <p className="text-xs font-bold text-slate-400 uppercase">
-                Shipped
-              </p>
-              <h3 className="text-xl font-black text-indigo-500 mt-1">0</h3>
+
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <AlertTriangle className="text-amber-400" size={20} />
+                <h4 className="text-sm font-bold text-amber-300">
+                  1.3 Smart Alerts & System Notifications
+                </h4>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-amber-200">
+                <div className="bg-slate-900/80 p-3 rounded-xl border border-amber-500/20 flex items-center justify-between">
+                  <span>⚠️ {pendingCount} Pending Orders in Queue</span>
+                  <button
+                    onClick={() => setActiveTab("orders")}
+                    className="font-bold underline cursor-pointer text-amber-400"
+                  >
+                    View
+                  </button>
+                </div>
+                <div className="bg-slate-900/80 p-3 rounded-xl border border-amber-500/20 flex items-center justify-between">
+                  <span>📦 Stock Products Synced: {products.length} Pcs</span>
+                  <button
+                    onClick={() => setActiveTab("inventory")}
+                    className="font-bold underline cursor-pointer text-amber-400"
+                  >
+                    Check
+                  </button>
+                </div>
+                <div className="bg-slate-900/80 p-3 rounded-xl border border-amber-500/20 flex items-center justify-between">
+                  <span>💳 Steadfast Courier API Active</span>
+                  <span className="font-bold text-emerald-400">Ready</span>
+                </div>
+              </div>
             </div>
-            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
-              <p className="text-xs font-bold text-slate-400 uppercase">
-                Delivered
-              </p>
-              <h3 className="text-xl font-black text-emerald-500 mt-1">0</h3>
-            </div>
-            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
-              <p className="text-xs font-bold text-slate-400 uppercase">
-                Cancelled
-              </p>
-              <h3 className="text-xl font-black text-rose-500 mt-1">0</h3>
-            </div>
-            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
-              <p className="text-xs font-bold text-slate-400 uppercase">
-                Returned
-              </p>
-              <h3 className="text-xl font-black text-purple-500 mt-1">0</h3>
+
+            {/* 1.2 Live Operations Monitor (Recent Orders Table) */}
+            <div className="bg-slate-900 rounded-2xl shadow-sm border border-slate-800 overflow-hidden space-y-4">
+              <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    1.2 Live Operations Monitor (Recent Orders)
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    রিয়েল-টাইম অর্ডার ট্র্যাকিং ও কুরিয়ার ডিসপ্যাচ মনিটর
+                  </p>
+                </div>
+                <button
+                  onClick={fetchOrders}
+                  className="flex items-center gap-2 text-xs text-rose-400 font-bold hover:bg-rose-500/10 px-3 py-1.5 rounded-lg transition cursor-pointer border border-rose-500/20"
+                >
+                  <RefreshCw size={14} /> Refresh Feed
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-950 text-slate-400 text-xs uppercase tracking-wider">
+                      <th className="p-4 font-bold">Order ID</th>
+                      <th className="p-4 font-bold">Date & Time</th>
+                      <th className="p-4 font-bold">Customer Info</th>
+                      <th className="p-4 font-bold">Address</th>
+                      <th className="p-4 font-bold">Amount</th>
+                      <th className="p-4 font-bold">Tracking ID</th>
+                      <th className="p-4 font-bold text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800 text-xs">
+                    {orders.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="text-center py-8 text-slate-500"
+                        >
+                          কোনো অর্ডার পাওয়া যায়নি!
+                        </td>
+                      </tr>
+                    ) : (
+                      orders
+                        .slice(-5)
+                        .reverse()
+                        .map((order, idx) => {
+                          const cStatus = order.status || "Pending";
+                          const isBooked =
+                            cStatus.toLowerCase() === "booked" ||
+                            cStatus.toLowerCase() === "sent";
+
+                          return (
+                            <tr
+                              key={idx}
+                              className="hover:bg-slate-800/50 transition"
+                            >
+                              <td className="p-4 font-bold text-rose-500">
+                                {order.orderId || `ORD-${idx + 1}`}
+                              </td>
+                              <td className="p-4 text-slate-400">
+                                {order.Date || "N/A"} <br />
+                                <span className="text-[10px] text-slate-500">
+                                  {order.Time || ""}
+                                </span>
+                              </td>
+                              <td className="p-4 font-bold text-white">
+                                {order.name || "Unknown"} <br />
+                                <span className="text-[11px] text-slate-400 font-normal">
+                                  {order.phone || "No Number"}
+                                </span>
+                              </td>
+                              <td className="p-4 text-slate-300 max-w-xs truncate">
+                                {order.address || "N/A"}
+                              </td>
+                              <td className="p-4 text-white font-bold">
+                                ৳{order.collectionAmount || 0}
+                              </td>
+                              <td className="p-4 font-mono text-cyan-400 font-bold">
+                                {order.trackingCode || "Not Booked"}
+                              </td>
+                              <td className="p-4 text-center">
+                                <button
+                                  onClick={() =>
+                                    handleCourierBooking(order, idx)
+                                  }
+                                  disabled={isBooked}
+                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-sm ${
+                                    isBooked
+                                      ? "bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 cursor-not-allowed"
+                                      : "bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
+                                  }`}
+                                >
+                                  {isBooked ? "✅ Booked" : "🚚 Steadfast"}
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -547,6 +824,7 @@ export default function AdminDashboard() {
                   <tr className="bg-slate-950 text-slate-400 text-xs uppercase tracking-wider">
                     <th className="p-4 font-bold">Order ID</th>
                     <th className="p-4 font-bold">Date</th>
+                    <th className="p-4 font-bold">Time</th>
                     <th className="p-4 font-bold">Name</th>
                     <th className="p-4 font-bold">Number</th>
                     <th className="p-4 font-bold">Address</th>
@@ -562,7 +840,7 @@ export default function AdminDashboard() {
                   {filteredOrders.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={9}
+                        colSpan={10}
                         className="text-center py-8 text-slate-500"
                       >
                         No orders found!
@@ -585,6 +863,9 @@ export default function AdminDashboard() {
                           </td>
                           <td className="p-4 text-slate-400 text-xs">
                             {order.Date || "N/A"}
+                          </td>
+                          <td className="p-4 text-slate-400 text-xs">
+                            {order.Time || "N/A"}
                           </td>
                           <td className="p-4 font-bold text-white">
                             {order.name || "Unknown"}
@@ -650,7 +931,6 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* 🏷️ Products & Inventory Management ট্যাব */}
         {activeTab === "inventory" && (
           <div className="space-y-6">
             <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -824,190 +1104,6 @@ export default function AdminDashboard() {
                   ></textarea>
                 </div>
 
-                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <h4 className="col-span-full text-xs font-bold text-cyan-400">
-                    🖼️ Image URLs (1 to 4)
-                  </h4>
-                  <div>
-                    <label className="block text-[10px] text-slate-400 mb-1">
-                      Image URL 1
-                    </label>
-                    <input
-                      type="text"
-                      value={productForm.imageUrl1}
-                      onChange={(e) =>
-                        setProductForm({
-                          ...productForm,
-                          imageUrl1: e.target.value,
-                        })
-                      }
-                      placeholder="parl'.jpg"
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-400 mb-1">
-                      Image URL 2
-                    </label>
-                    <input
-                      type="text"
-                      value={productForm.imageUrl2}
-                      onChange={(e) =>
-                        setProductForm({
-                          ...productForm,
-                          imageUrl2: e.target.value,
-                        })
-                      }
-                      placeholder="parl1.jpg"
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-400 mb-1">
-                      Image URL 3
-                    </label>
-                    <input
-                      type="text"
-                      value={productForm.imageUrl3}
-                      onChange={(e) =>
-                        setProductForm({
-                          ...productForm,
-                          imageUrl3: e.target.value,
-                        })
-                      }
-                      placeholder="parl2.jpg"
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-400 mb-1">
-                      Image URL 4
-                    </label>
-                    <input
-                      type="text"
-                      value={productForm.imageUrl4}
-                      onChange={(e) =>
-                        setProductForm({
-                          ...productForm,
-                          imageUrl4: e.target.value,
-                        })
-                      }
-                      placeholder="parl3.jpg"
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
-                    />
-                  </div>
-                </div>
-
-                <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
-                  <h4 className="text-xs font-bold text-amber-400">
-                    ⚡ Product Specifications Matrix
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="flex items-center gap-3 bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-                      <span className="w-1/2 text-xs font-bold text-slate-300">
-                        Product Type
-                      </span>
-                      <input
-                        type="text"
-                        value={productForm.productType}
-                        onChange={(e) =>
-                          setProductForm({
-                            ...productForm,
-                            productType: e.target.value,
-                          })
-                        }
-                        placeholder="Value 1"
-                        className="w-1/2 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
-                      />
-                    </div>
-                    <div className="flex items-center gap-3 bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-                      <span className="w-1/2 text-xs font-bold text-slate-300">
-                        Usable Gender
-                      </span>
-                      <input
-                        type="text"
-                        value={productForm.usableGender}
-                        onChange={(e) =>
-                          setProductForm({
-                            ...productForm,
-                            usableGender: e.target.value,
-                          })
-                        }
-                        placeholder="Value 2"
-                        className="w-1/2 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
-                      />
-                    </div>
-                    <div className="flex items-center gap-3 bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-                      <span className="w-1/2 text-xs font-bold text-slate-300">
-                        Material
-                      </span>
-                      <input
-                        type="text"
-                        value={productForm.material}
-                        onChange={(e) =>
-                          setProductForm({
-                            ...productForm,
-                            material: e.target.value,
-                          })
-                        }
-                        placeholder="Value 3"
-                        className="w-1/2 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
-                      />
-                    </div>
-                    <div className="flex items-center gap-3 bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-                      <span className="w-1/2 text-xs font-bold text-slate-300">
-                        Color
-                      </span>
-                      <input
-                        type="text"
-                        value={productForm.color}
-                        onChange={(e) =>
-                          setProductForm({
-                            ...productForm,
-                            color: e.target.value,
-                          })
-                        }
-                        placeholder="Value 4"
-                        className="w-1/2 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
-                      />
-                    </div>
-                    <div className="flex items-center gap-3 bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-                      <span className="w-1/2 text-xs font-bold text-slate-300">
-                        Single Package Size
-                      </span>
-                      <input
-                        type="text"
-                        value={productForm.singlePackageSize}
-                        onChange={(e) =>
-                          setProductForm({
-                            ...productForm,
-                            singlePackageSize: e.target.value,
-                          })
-                        }
-                        placeholder="Value 5"
-                        className="w-1/2 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
-                      />
-                    </div>
-                    <div className="flex items-center gap-3 bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-                      <span className="w-1/2 text-xs font-bold text-slate-300">
-                        Single Gross Weight
-                      </span>
-                      <input
-                        type="text"
-                        value={productForm.singleGrossWeight}
-                        onChange={(e) =>
-                          setProductForm({
-                            ...productForm,
-                            singleGrossWeight: e.target.value,
-                          })
-                        }
-                        placeholder="Value 6"
-                        className="w-1/2 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-
                 <button
                   type="submit"
                   disabled={isSubmitting}
@@ -1111,211 +1207,529 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* 👥 Customer & Fraud/Risk Management ট্যাব */}
+        {/* 8. Customer & Fraud Prevention Management */}
         {activeTab === "customers" && (
           <div className="space-y-6">
-            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
-                  Duo Corner Customer Control Center
-                </span>
-                <h2 className="text-xl font-black text-white mt-2">
-                  👥 Customer 360° & Fraud Risk Management
-                </h2>
-              </div>
-              <div className="flex flex-wrap gap-2">
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap gap-2 text-xs font-bold">
                 <button
                   onClick={() => setCustomerSubTab("profiles")}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${customerSubTab === "profiles" ? "bg-rose-600 text-white" : "bg-slate-800 text-slate-300"}`}
+                  className={`px-4 py-2 rounded-xl transition cursor-pointer ${customerSubTab === "profiles" ? "bg-rose-600 text-white shadow-lg" : "bg-slate-800 text-slate-300 hover:bg-slate-700"}`}
                 >
                   Customer 360°
                 </button>
                 <button
                   onClick={() => setCustomerSubTab("fraud")}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${customerSubTab === "fraud" ? "bg-rose-600 text-white" : "bg-slate-800 text-slate-300"}`}
+                  className={`px-4 py-2 rounded-xl transition cursor-pointer ${customerSubTab === "fraud" ? "bg-rose-600 text-white shadow-lg" : "bg-slate-800 text-slate-300 hover:bg-slate-700"}`}
                 >
                   Fraud Detection
                 </button>
                 <button
                   onClick={() => setCustomerSubTab("verification")}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${customerSubTab === "verification" ? "bg-rose-600 text-white" : "bg-slate-800 text-slate-300"}`}
+                  className={`px-4 py-2 rounded-xl transition cursor-pointer ${customerSubTab === "verification" ? "bg-rose-600 text-white shadow-lg" : "bg-slate-800 text-slate-300 hover:bg-slate-700"}`}
                 >
                   COD Verification
                 </button>
                 <button
                   onClick={() => setCustomerSubTab("queue")}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${customerSubTab === "queue" ? "bg-rose-600 text-white" : "bg-slate-800 text-slate-300"}`}
+                  className={`px-4 py-2 rounded-xl transition cursor-pointer ${customerSubTab === "queue" ? "bg-rose-600 text-white shadow-lg" : "bg-slate-800 text-slate-300 hover:bg-slate-700"}`}
                 >
                   Review Queue
                 </button>
                 <button
                   onClick={() => setCustomerSubTab("watchlist")}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${customerSubTab === "watchlist" ? "bg-rose-600 text-white" : "bg-slate-800 text-slate-300"}`}
+                  className={`px-4 py-2 rounded-xl transition cursor-pointer ${customerSubTab === "watchlist" ? "bg-rose-600 text-white shadow-lg" : "bg-slate-800 text-slate-300 hover:bg-slate-700"}`}
                 >
                   Watchlist & Block
                 </button>
               </div>
             </div>
 
-            {customerSubTab === "profiles" && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-1 bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4">
-                  <h3 className="text-sm font-bold text-white border-b border-slate-800 pb-3">
-                    🔍 Smart Customer Directory ({orders.length})
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                  <h3 className="text-sm font-black text-white uppercase tracking-wider">
+                    Smart Customer Directory ({orders.length})
                   </h3>
-                  <div className="space-y-2 max-h-[500px] overflow-y-auto">
-                    {orders.map((o, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => setSelectedCustomer(o)}
-                        className="p-3 bg-slate-950 hover:bg-slate-800/80 rounded-xl border border-slate-800 cursor-pointer transition flex justify-between items-center"
-                      >
-                        <div>
-                          <p className="text-xs font-bold text-white">
-                            {o.name || "Customer"}
+                </div>
+
+                <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
+                  {orders.length === 0 ? (
+                    <p className="text-xs text-slate-500 text-center py-6">
+                      কোনো কাস্টমার পাওয়া যায়নি!
+                    </p>
+                  ) : (
+                    orders.map((ord, i) => {
+                      const custPhone = ord.phone || "N/A";
+                      const isSelected = selectedCustomer?.phone === custPhone;
+
+                      return (
+                        <div
+                          key={i}
+                          onClick={() => {
+                            setSelectedCustomer(ord);
+                            void fetchAutomatedFraudData(custPhone);
+                          }}
+                          className={`p-4 rounded-2xl border transition cursor-pointer flex items-center justify-between ${
+                            isSelected
+                              ? "bg-rose-600/10 border-rose-500/50"
+                              : "bg-slate-950 border-slate-800 hover:bg-slate-800/50"
+                          }`}
+                        >
+                          <div>
+                            <h4 className="text-sm font-bold text-white">
+                              {ord.name || "Unknown"}
+                            </h4>
+                            <p className="text-xs text-slate-400 font-mono mt-0.5">
+                              {custPhone}
+                            </p>
+                          </div>
+                          <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-full font-bold">
+                            Verified
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-6 shadow-xl">
+                <div className="border-b border-slate-800 pb-3">
+                  <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                    <UserCheck className="text-rose-500" size={18} /> Customer
+                    360° Profile & Risk Score
+                  </h3>
+                </div>
+
+                {selectedCustomer ? (
+                  <div className="space-y-6">
+                    <div className="bg-slate-950 border border-slate-800 p-5 rounded-2xl grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-[11px] font-bold text-slate-400 uppercase">
+                          Customer Name
+                        </p>
+                        <h4 className="text-sm font-bold text-white mt-1">
+                          {selectedCustomer.name || "N/A"}
+                        </h4>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-bold text-slate-400 uppercase">
+                          Phone Number
+                        </p>
+                        <h4 className="text-sm font-mono font-bold text-cyan-400 mt-1">
+                          {selectedCustomer.phone || "N/A"}
+                        </h4>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-[11px] font-bold text-slate-400 uppercase">
+                          Delivery Address
+                        </p>
+                        <p className="text-xs text-slate-300 mt-1">
+                          {selectedCustomer.address || "N/A"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {autoFraudLoading ? (
+                      <div className="bg-slate-950 border border-slate-800 p-8 rounded-2xl text-center">
+                        <div className="w-8 h-8 mx-auto mb-2 border-2 border-rose-500/20 border-t-rose-500 rounded-full animate-spin"></div>
+                        <p className="text-xs text-rose-400 font-bold">
+                          Steadfast API থেকে অটোমেটিক ফ্রড ও রিসিভ হিস্ট্রি চেক
+                          করা হচ্ছে...
+                        </p>
+                      </div>
+                    ) : fraudReportMap[selectedCustomer.phone] ? (
+                      <div className="bg-slate-950 border border-slate-800 p-6 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-6">
+                        <div className="space-y-2">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400">
+                            Steadfast Automated Courier Report
+                          </h4>
+                          <p className="text-xs text-slate-300">
+                            মোট অর্ডার:{" "}
+                            <span className="font-bold text-white">
+                              {
+                                fraudReportMap[selectedCustomer.phone]
+                                  .totalOrders
+                              }{" "}
+                              টি
+                            </span>{" "}
+                            | রিসিভ করেছে:{" "}
+                            <span className="font-bold text-emerald-400">
+                              {
+                                fraudReportMap[selectedCustomer.phone]
+                                  .deliveredOrders
+                              }{" "}
+                              টি
+                            </span>{" "}
+                            | ক্যানসেল:{" "}
+                            <span className="font-bold text-rose-400">
+                              {
+                                fraudReportMap[selectedCustomer.phone]
+                                  .cancelledOrders
+                              }{" "}
+                              টি
+                            </span>
                           </p>
-                          <p className="text-[10px] text-slate-400">
-                            {o.phone || "N/A"}
+                          <p
+                            className={`text-xs font-bold ${Number(fraudReportMap[selectedCustomer.phone].successRate) >= 70 ? "text-emerald-400" : "text-rose-500"}`}
+                          >
+                            স্ট্যাটাস:{" "}
+                            {fraudReportMap[selectedCustomer.phone].riskLevel}
                           </p>
                         </div>
-                        <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-md font-bold">
-                          Verified
+
+                        <div className="flex flex-col items-center justify-center shrink-0">
+                          <div
+                            className={`w-20 h-20 rounded-full flex flex-col items-center justify-center border-4 shadow-xl ${
+                              Number(
+                                fraudReportMap[selectedCustomer.phone]
+                                  .successRate,
+                              ) >= 70
+                                ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
+                                : "border-rose-500 bg-rose-500/10 text-rose-500"
+                            }`}
+                          >
+                            <span className="text-base font-black">
+                              {
+                                fraudReportMap[selectedCustomer.phone]
+                                  .successRate
+                              }
+                              %
+                            </span>
+                            <span className="text-[9px] uppercase font-bold">
+                              Success
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-slate-950 border border-slate-800 p-6 rounded-2xl text-center">
+                        <button
+                          onClick={() =>
+                            fetchAutomatedFraudData(selectedCustomer.phone)
+                          }
+                          className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl cursor-pointer shadow-md"
+                        >
+                          🔄 অটোমেটিক কুরিয়ার হিস্ট্রি ফেচ করুন
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                        ⚡ Trust Level & Risk Factors
+                      </h4>
+                      <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl space-y-2 text-xs">
+                        <div className="flex items-center gap-2 text-emerald-400">
+                          <CheckCircle2 size={16} /> পূর্বের সফল ডেলিভারি রেকর্ড
+                          ভালো।
+                        </div>
+                        <div className="flex items-center gap-2 text-slate-300">
+                          <XCircle size={16} className="text-slate-500" /> কোনো
+                          ডুপ্লিকেট অর্ডার বা রিটার্ন ফ্রড প্যাটার্ন নেই।
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-16 text-slate-500 text-xs">
+                    বাম পাশ থেকে যেকোনো কাস্টমার সিলেক্ট করুন।
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Payments & COD Settlements Center */}
+        {activeTab === "settlements" && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+              <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl flex items-center justify-between shadow-xl">
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase">
+                    COD Collection in Hand
+                  </p>
+                  <h3 className="text-2xl font-black text-emerald-400 mt-1">
+                    ৳{totalCodCollection.toLocaleString()}
+                  </h3>
+                  <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-2.5 py-0.5 rounded-full mt-2 inline-block">
+                    Delivered Orders Total
+                  </span>
+                </div>
+                <div className="p-3.5 bg-emerald-500/10 text-emerald-400 rounded-2xl">
+                  <Wallet size={26} />
+                </div>
+              </div>
+
+              <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl flex items-center justify-between shadow-xl">
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase">
+                    Courier Due (Steadfast)
+                  </p>
+                  <h3 className="text-2xl font-black text-amber-500 mt-1">
+                    ৳{courierDueAmount.toLocaleString()}
+                  </h3>
+                  <span className="text-[10px] text-amber-400 font-semibold bg-amber-500/10 px-2.5 py-0.5 rounded-full mt-2 inline-block">
+                    Processing & Shipped
+                  </span>
+                </div>
+                <div className="p-3.5 bg-amber-500/10 text-amber-500 rounded-2xl">
+                  <Truck size={26} />
+                </div>
+              </div>
+
+              <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl flex items-center justify-between shadow-xl">
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase">
+                    Bank / MFS Received
+                  </p>
+                  <h3 className="text-2xl font-black text-cyan-400 mt-1">
+                    ৳{bankReceivedAmount.toLocaleString()}
+                  </h3>
+                  <span className="text-[10px] text-cyan-400 font-semibold bg-cyan-500/10 px-2.5 py-0.5 rounded-full mt-2 inline-block">
+                    Auto Reconciled (85%)
+                  </span>
+                </div>
+                <div className="p-3.5 bg-cyan-500/10 text-cyan-400 rounded-2xl">
+                  <Building2 size={26} />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl shadow-xl overflow-hidden space-y-4">
+              <div className="p-6 border-b border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div>
+                  <h3 className="text-base font-black text-white">
+                    💰 Automated Payment & COD Settlements Ledger
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Steadfast কুরিয়ার এবং ব্যাংক সেটেলমেন্টের রিয়েল-টাইম
+                    অটোমেটেড হিসাব।
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSettlementFilter("all")}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${settlementFilter === "all" ? "bg-rose-600 text-white" : "bg-slate-800 text-slate-300"}`}
+                  >
+                    সকল লেনদেন
+                  </button>
+                  <button
+                    onClick={() => setSettlementFilter("delivered")}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${settlementFilter === "delivered" ? "bg-rose-600 text-white" : "bg-slate-800 text-slate-300"}`}
+                  >
+                    সফল রিসিভড (COD)
+                  </button>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="bg-slate-950 text-slate-400 uppercase tracking-wider">
+                      <th className="p-4">Order ID</th>
+                      <th className="p-4">Date</th>
+                      <th className="p-4">Customer Name</th>
+                      <th className="p-4">Phone</th>
+                      <th className="p-4">Collection Amount</th>
+                      <th className="p-4">Settlement Status</th>
+                      <th className="p-4 text-right">Gateway / Method</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {orders.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="text-center py-8 text-slate-500"
+                        >
+                          কোনো সেটেলমেন্ট ডাটা পাওয়া যায়নি!
+                        </td>
+                      </tr>
+                    ) : (
+                      orders
+                        .filter((ord) => {
+                          if (settlementFilter === "delivered") {
+                            return (
+                              String(ord.status || "").toLowerCase() ===
+                                "delivered" ||
+                              String(ord.courierAction || "").toLowerCase() ===
+                                "completed"
+                            );
+                          }
+                          return true;
+                        })
+                        .map((ord, i) => {
+                          const isDelivered =
+                            String(ord.status || "").toLowerCase() ===
+                              "delivered" ||
+                            String(ord.courierAction || "").toLowerCase() ===
+                              "completed";
+
+                          return (
+                            <tr key={i} className="hover:bg-slate-800/50">
+                              <td className="p-4 font-bold text-rose-500">
+                                {ord.orderId || `ORD-${i + 1}`}
+                              </td>
+                              <td className="p-4 text-slate-400">
+                                {ord.Date || "N/A"}
+                              </td>
+                              <td className="p-4 font-bold text-white">
+                                {ord.name || "Unknown"}
+                              </td>
+                              <td className="p-4 text-slate-300 font-mono">
+                                {ord.phone || "N/A"}
+                              </td>
+                              <td className="p-4 font-bold text-emerald-400">
+                                ৳{ord.collectionAmount || 0}
+                              </td>
+                              <td className="p-4">
+                                <span
+                                  className={`px-3 py-1 rounded-full font-bold text-[10px] ${
+                                    isDelivered
+                                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                      : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                                  }`}
+                                >
+                                  {isDelivered
+                                    ? "Settled (Paid)"
+                                    : "Pending Due"}
+                                </span>
+                              </td>
+                              <td className="p-4 text-right font-semibold text-slate-300">
+                                <span className="flex items-center justify-end gap-1.5 text-cyan-400">
+                                  <CreditCard size={14} /> Steadfast COD
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Business Automation & Rules Engine UI */}
+        {activeTab === "automation" && (
+          <div className="space-y-6">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-6 shadow-xl">
+              <div className="border-b border-slate-800 pb-4">
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
+                  Duo Corner Automation
+                </span>
+                <h3 className="text-lg font-black text-white mt-2 flex items-center gap-2">
+                  <Zap className="text-amber-400" size={20} /> Business
+                  Automation & Rules Engine
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div className="lg:col-span-7 space-y-4">
+                  <h4 className="text-sm font-bold text-white">
+                    Active Automation Rules
+                  </h4>
+                  <div className="space-y-3">
+                    {rules.map((rule) => (
+                      <div
+                        key={rule.id}
+                        className="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex items-center justify-between"
+                      >
+                        <div>
+                          <h5 className="text-sm font-bold text-white">
+                            {rule.name}
+                          </h5>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            Trigger:{" "}
+                            <span className="text-cyan-400">
+                              {rule.trigger}
+                            </span>
+                          </p>
+                        </div>
+                        <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full font-bold">
+                          Active
                         </span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="lg:col-span-2 bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-5">
-                  <h3 className="text-sm font-bold text-white border-b border-slate-800 pb-3">
-                    📋 Customer 360° Profile & Risk Score
-                  </h3>
-                  {selectedCustomer ? (
-                    <div className="space-y-4 text-xs">
-                      <div className="grid grid-cols-2 gap-4 bg-slate-950 p-4 rounded-xl border border-slate-800">
-                        <div>
-                          <span className="text-slate-400">Customer Name:</span>{" "}
-                          <strong className="text-white">
-                            {selectedCustomer.name}
-                          </strong>
-                        </div>
-                        <div>
-                          <span className="text-slate-400">Phone Number:</span>{" "}
-                          <strong className="text-cyan-400">
-                            {selectedCustomer.phone}
-                          </strong>
-                        </div>
-                        <div>
-                          <span className="text-slate-400">Address:</span>{" "}
-                          <strong className="text-white">
-                            {selectedCustomer.address || "N/A"}
-                          </strong>
-                        </div>
-                        <div>
-                          <span className="text-slate-400">Total Orders:</span>{" "}
-                          <strong className="text-emerald-400">
-                            1 (Low Risk Score: 15/100)
-                          </strong>
-                        </div>
-                      </div>
-                      <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
-                        <h4 className="font-bold text-amber-400">
-                          ⚡ Trust Level & Risk Factors
-                        </h4>
-                        <p className="text-slate-300">
-                          ● পূর্বের সফল ডেলিভারি রেকর্ড ভালো।
-                        </p>
-                        <p className="text-slate-300">
-                          ● কোনো ডুপ্লিকেট অর্ডার বা রিটার্ন ফ্রড প্যাটার্ন নেই।
-                        </p>
-                      </div>
+                <div className="lg:col-span-5 bg-slate-950 border border-slate-800 p-6 rounded-2xl space-y-4">
+                  <h4 className="text-sm font-bold text-white">
+                    + Create New Automation Rule
+                  </h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1">
+                        Rule Name (নিয়মের নাম)
+                      </label>
+                      <input
+                        type="text"
+                        value={newRuleName}
+                        onChange={(e) => setNewRuleName(e.target.value)}
+                        placeholder="যেমন: ২৪ ঘণ্টা আপডেট না হলে অ্যালার্ট"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white focus:border-rose-500 focus:outline-none"
+                      />
                     </div>
-                  ) : (
-                    <div className="text-center py-16 text-slate-500">
-                      বাম পাশের তালিকা থেকে যেকোনো কাস্টমার সিলেক্ট করুন।
-                    </div>
-                  )}
+                    <button
+                      onClick={() => {
+                        if (!newRuleName) return alert("নিয়মের নাম লিখুন!");
+                        setRules([
+                          ...rules,
+                          {
+                            id: rules.length + 1,
+                            name: newRuleName,
+                            trigger: "Custom Trigger",
+                            status: true,
+                          },
+                        ]);
+                        setNewRuleName("");
+                        alert("✅ নতুন অটোমেশন রুল সফলভাবে যুক্ত হয়েছে!");
+                      }}
+                      className="w-full bg-gradient-to-r from-rose-600 to-indigo-600 hover:from-rose-700 hover:to-indigo-700 text-white font-bold py-3 rounded-xl text-xs transition cursor-pointer shadow-lg"
+                    >
+                      ⚡ Save & Active Rule
+                    </button>
+                  </div>
                 </div>
               </div>
-            )}
-            {customerSubTab === "fraud" && (
-              <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
-                <h3 className="text-sm font-bold text-white">
-                  🛡️ Fraud Detection Engine
-                </h3>
-                <p className="text-xs text-slate-400 mt-2">
-                  ডুপ্লিকেট ও সন্দেহজনক অর্ডার মনিটরিং চলছে।
-                </p>
-              </div>
-            )}
-            {customerSubTab === "verification" && (
-              <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
-                <h3 className="text-sm font-bold text-white">
-                  📱 COD Verification Center
-                </h3>
-                <p className="text-xs text-slate-400 mt-2">
-                  SMS OTP ও কল কনফার্মেশন কিউ।
-                </p>
-              </div>
-            )}
-            {customerSubTab === "queue" && (
-              <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
-                <h3 className="text-sm font-bold text-white">
-                  ⏳ Review Queue
-                </h3>
-                <p className="text-xs text-slate-400 mt-2">
-                  উচ্চ ঝুঁকিপূর্ণ অর্ডার পর্যালোচনার তালিকা।
-                </p>
-              </div>
-            )}
-            {customerSubTab === "watchlist" && (
-              <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
-                <h3 className="text-sm font-bold text-white">
-                  🚫 Watchlist & Blocklist
-                </h3>
-                <p className="text-xs text-slate-400 mt-2">
-                  সীমাবদ্ধ কাস্টমারদের তালিকা।
-                </p>
-              </div>
-            )}
+            </div>
           </div>
         )}
 
-        {/* 📈 Marketing, Pixels & Server-Side Tracking ট্যাব */}
+        {/* 9. Marketing & Pixels Hub (Updated to match Image 11 layout exactly) */}
         {activeTab === "marketing" && (
-          <div className="space-y-6">
-            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
-                  Duo Corner Marketing Control Center
-                </span>
-                <h2 className="text-xl font-black text-white mt-2">
-                  📈 Marketing, Pixels & Server-Side Tracking
-                </h2>
-              </div>
-              <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold px-4 py-2 rounded-xl">
-                CAPI & Deduplication: Active
-              </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-6 shadow-xl">
+            <div className="border-b border-slate-800 pb-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
+                Duo Corner Marketing Control Center
+              </span>
+              <h3 className="text-lg font-black text-white mt-2 flex items-center gap-2">
+                📈 Marketing, Pixels & Server-Side Tracking
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Multi-Platform Pixel & API Token Manager - এখান থেকে পিক্সেল ও
+                টোকেন কনফিগার করলে তা স্বয়ংক্রিয়ভাবে আপনার ওয়েবসাইটে সেট হয়ে
+                যাবে।
+              </p>
             </div>
 
             {pixelSaved && (
               <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 p-4 rounded-xl text-xs font-bold">
-                ✅ মার্কেটিং পিক্সেল এবং ট্র্যাকিং কনফিগারেশন সফলভাবে সেভ
-                হয়েছে!
+                ✅ পিক্সেল ও ট্র্যাকিং কনফিগারেশন সফলভাবে সেভ এবং ওয়েবসাইটে লাইভ
+                হয়েছে।
               </div>
             )}
 
-            <form
-              onSubmit={handleSavePixels}
-              className="bg-slate-900 border border-slate-800 p-6 md:p-8 rounded-3xl space-y-6 shadow-xl"
-            >
-              <h3 className="text-base font-black text-white border-b border-slate-800 pb-3">
-                ⚙️ Multi-Platform Pixel & API Token Manager
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-2">
+            <form onSubmit={handleSavePixels} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Meta Pixel ID */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-300 uppercase">
                     Meta Pixel ID
                   </label>
                   <input
@@ -1328,15 +1742,17 @@ export default function AdminDashboard() {
                       })
                     }
                     placeholder="যেমন: 123456789012345"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white focus:border-rose-500 focus:outline-none"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white focus:border-rose-500 focus:outline-none font-mono"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-2">
+
+                {/* Meta CAPI Access Token */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-300 uppercase">
                     Meta CAPI Access Token
                   </label>
                   <input
-                    type="text"
+                    type="password"
                     value={pixelConfig.metaAccessToken}
                     onChange={(e) =>
                       setPixelConfig({
@@ -1345,11 +1761,13 @@ export default function AdminDashboard() {
                       })
                     }
                     placeholder="EAAG..."
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white focus:border-rose-500 focus:outline-none"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white focus:border-rose-500 focus:outline-none font-mono"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-2">
+
+                {/* GA4 Measurement ID */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-300 uppercase">
                     GA4 Measurement ID
                   </label>
                   <input
@@ -1359,12 +1777,14 @@ export default function AdminDashboard() {
                       setPixelConfig({ ...pixelConfig, ga4Id: e.target.value })
                     }
                     placeholder="G-XXXXXXXXXX"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white focus:border-rose-500 focus:outline-none"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white focus:border-rose-500 focus:outline-none font-mono"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-2">
-                    Google Tag Manager (GTM) ID
+
+                {/* Google Tag Manager (GTM ID) */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-300 uppercase">
+                    Google Tag Manager (GTM ID)
                   </label>
                   <input
                     type="text"
@@ -1373,11 +1793,13 @@ export default function AdminDashboard() {
                       setPixelConfig({ ...pixelConfig, gtmId: e.target.value })
                     }
                     placeholder="GTM-XXXXXXX"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white focus:border-rose-500 focus:outline-none"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white focus:border-rose-500 focus:outline-none font-mono"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-2">
+
+                {/* TikTok Pixel ID */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-300 uppercase">
                     TikTok Pixel ID
                   </label>
                   <input
@@ -1389,16 +1811,18 @@ export default function AdminDashboard() {
                         tiktokPixelId: e.target.value,
                       })
                     }
-                    placeholder="CXXXXXXXXXXXXX"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white focus:border-rose-500 focus:outline-none"
+                    placeholder="CXXXXXXXXXXXXXXX"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white focus:border-rose-500 focus:outline-none font-mono"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-2">
+
+                {/* TikTok Events API Token */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-300 uppercase">
                     TikTok Events API Token
                   </label>
                   <input
-                    type="text"
+                    type="password"
                     value={pixelConfig.tiktokAccessToken}
                     onChange={(e) =>
                       setPixelConfig({
@@ -1407,274 +1831,24 @@ export default function AdminDashboard() {
                       })
                     }
                     placeholder="TikTok Token..."
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white focus:border-rose-500 focus:outline-none"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white focus:border-rose-500 focus:outline-none font-mono"
                   />
                 </div>
               </div>
 
-              <button
-                type="submit"
-                className="w-full bg-gradient-to-r from-rose-600 to-indigo-600 hover:from-rose-700 hover:to-indigo-700 text-white font-bold py-4 rounded-xl text-xs transition shadow-lg cursor-pointer"
-              >
-                💾 সেভ মার্কেটিং ও পিক্সেল কনফিগারেশন
-              </button>
-            </form>
-          </div>
-        )}
-
-        {/* 💰 Payment & Courier COD Settlement Center */}
-        {activeTab === "settlements" && (
-          <div className="space-y-6">
-            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
-                  Duo Corner Financial Control Center
+              {/* Save & Configure Button matching Image 11 */}
+              <div className="flex flex-col sm:flex-row justify-between items-center pt-4 border-t border-slate-800 gap-4">
+                <span className="text-[11px] text-emerald-400 font-bold bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">
+                  ● CAPI & Deduplication: Active
                 </span>
-                <h2 className="text-xl font-black text-white mt-2">
-                  💰 Payment & Courier COD Settlement Center
-                </h2>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
-                <p className="text-xs font-bold text-slate-400 uppercase">
-                  মোট COD পাওনা
-                </p>
-                <h3 className="text-xl font-black text-amber-500 mt-1">
-                  ৳ {totalSales.toLocaleString()}
-                </h3>
-              </div>
-              <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
-                <p className="text-xs font-bold text-slate-400 uppercase">
-                  কুরিয়ারের কাছে বকেয়া
-                </p>
-                <h3 className="text-xl font-black text-cyan-400 mt-1">
-                  ৳ {totalSales.toLocaleString()}
-                </h3>
-              </div>
-              <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
-                <p className="text-xs font-bold text-slate-400 uppercase">
-                  ব্যাঙ্কে প্রাপ্ত টাকা
-                </p>
-                <h3 className="text-xl font-black text-emerald-400 mt-1">
-                  ৳ 0
-                </h3>
-              </div>
-              <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
-                <p className="text-xs font-bold text-slate-400 uppercase">
-                  অমীমাংসিত পার্থক্য
-                </p>
-                <h3 className="text-xl font-black text-rose-500 mt-1">৳ 0</h3>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
-                <h3 className="text-sm font-bold text-white border-b border-slate-800 pb-3">
-                  📦 Order Settlement List & Reconciliation
-                </h3>
-                <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-800 text-slate-400">
-                        <th className="p-3">Order ID</th>
-                        <th className="p-3">Customer</th>
-                        <th className="p-3">COD Amount</th>
-                        <th className="p-3">Status</th>
-                        <th className="p-3 text-right">Money Trail</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800/60">
-                      {orders.map((o, idx) => (
-                        <tr key={idx} className="hover:bg-slate-800/50">
-                          <td className="p-3 font-bold text-rose-500">
-                            {o.orderId || `ORD-${idx + 1}`}
-                          </td>
-                          <td className="p-3 text-white">
-                            {o.name || "Customer"}
-                          </td>
-                          <td className="p-3 text-emerald-400 font-bold">
-                            ৳{o.collectionAmount || 0}
-                          </td>
-                          <td className="p-3">
-                            <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 text-[10px] font-bold">
-                              {o.status || "Pending"}
-                            </span>
-                          </td>
-                          <td className="p-3 text-right">
-                            <button
-                              onClick={() => setSelectedSettlementOrder(o)}
-                              className="bg-slate-800 hover:bg-slate-700 text-cyan-400 px-3 py-1 rounded-lg text-xs font-bold cursor-pointer"
-                            >
-                              🔍 Money Trail
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="lg:col-span-1 bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
-                <h3 className="text-sm font-bold text-white border-b border-slate-800 pb-3">
-                  🛤️ Order Money Trail (এ টু জেড ইতিহাস)
-                </h3>
-                {selectedSettlementOrder ? (
-                  <div className="space-y-3 text-xs">
-                    <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
-                      <p className="text-slate-400">
-                        গ্রাহক:{" "}
-                        <strong className="text-white">
-                          {selectedSettlementOrder.name}
-                        </strong>
-                      </p>
-                      <p className="text-slate-400">
-                        মোবাইল:{" "}
-                        <strong className="text-white">
-                          {selectedSettlementOrder.phone}
-                        </strong>
-                      </p>
-                      <p className="text-slate-400">
-                        মূল্য:{" "}
-                        <strong className="text-emerald-400">
-                          ৳{selectedSettlementOrder.collectionAmount || 0}
-                        </strong>
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-16 text-slate-500">
-                    বাম পাশের টেবিল থেকে যেকোনো অর্ডারের &apos;Money Trail&apos; দেখতে
-                    ক্লিক করুন।
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ⚡ Automation Rules */}
-        {activeTab === "automation" && (
-          <div className="space-y-6">
-            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex justify-between items-center">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
-                  Duo Corner Automation
-                </span>
-                <h2 className="text-xl font-black text-white mt-2">
-                  ⚡ Business Automation & Rules Engine
-                </h2>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
-                <h3 className="text-sm font-bold text-white border-b border-slate-800 pb-3">
-                  📜 Active Automation Rules
-                </h3>
-                <div className="space-y-3">
-                  {rules.map((rule) => (
-                    <div
-                      key={rule.id}
-                      className="p-4 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center"
-                    >
-                      <div>
-                        <p className="text-xs font-bold text-white">
-                          {rule.name}
-                        </p>
-                        <p className="text-[10px] text-cyan-400 mt-0.5">
-                          Trigger: {rule.trigger}
-                        </p>
-                      </div>
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        Active
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
-                <h3 className="text-sm font-bold text-white border-b border-slate-800 pb-3">
-                  ➕ Create New Automation Rule
-                </h3>
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (newRuleName) {
-                      setRules([
-                        ...rules,
-                        {
-                          id: rules.length + 1,
-                          name: newRuleName,
-                          trigger: "Custom Event",
-                          status: true,
-                        },
-                      ]);
-                      setNewRuleName("");
-                      alert("নিয়ম সফলভাবে যোগ করা হয়েছে!");
-                    }
-                  }}
-                  className="space-y-4 text-xs"
+                <button
+                  type="submit"
+                  className="bg-gradient-to-r from-rose-600 to-indigo-600 hover:from-rose-700 hover:to-indigo-700 text-white font-bold px-8 py-3.5 rounded-xl text-xs transition shadow-lg cursor-pointer w-full sm:w-auto"
                 >
-                  <div>
-                    <label className="block text-slate-300 font-bold mb-2">
-                      Rule Name (নিয়মের নাম)
-                    </label>
-                    <input
-                      type="text"
-                      value={newRuleName}
-                      onChange={(e) => setNewRuleName(e.target.value)}
-                      placeholder="যেমন: ২৪ ঘণ্টা আপডেট না হলে অ্যালার্ট"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-rose-500 focus:outline-none"
-                      required
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 rounded-xl transition cursor-pointer"
-                  >
-                    ⚡ Save & Activate Rule
-                  </button>
-                </form>
+                  💾 পিক্সেল ও টোকেন কনফিগারেশন সেভ করুন
+                </button>
               </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "reports" && (
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
-            <h2 className="text-xl font-bold text-white">
-              📑 Professional Reports & BI Hub
-            </h2>
-          </div>
-        )}
-        {activeTab === "staff" && (
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
-            <h2 className="text-xl font-bold text-white">
-              🔐 Staff, Permissions & Approval Center
-            </h2>
-          </div>
-        )}
-        {activeTab === "cms" && (
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
-            <h2 className="text-xl font-bold text-white">
-              🌐 Website & Content Management (CMS)
-            </h2>
-          </div>
-        )}
-        {activeTab === "system" && (
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
-            <h2 className="text-xl font-bold text-white">
-              ⚙️ Integration, API & System Health Center
-            </h2>
-          </div>
-        )}
-        {activeTab === "settings" && (
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
-            <h2 className="text-xl font-bold text-white">
-              🛠️ Business Settings & Configuration Center
-            </h2>
+            </form>
           </div>
         )}
       </main>

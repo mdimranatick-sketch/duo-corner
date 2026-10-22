@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Metadata, Viewport } from "next";
 import { Hind_Siliguri } from "next/font/google";
 import type { ReactNode } from "react";

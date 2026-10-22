@@ -1,0 +1,17 @@
+{
+  "meta": {
+    "pixelId": "",
+    "accessToken": "",
+    "enabled": false
+  },
+  "google": {
+    "ga4MeasurementId": "",
+    "googleAdsId": "",
+    "enabled": false
+  },
+  "tiktok": {
+    "pixelId": "",
+    "accessToken": "",
+    "enabled": false
+  }
+}

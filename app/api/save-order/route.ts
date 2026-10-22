@@ -56,12 +56,15 @@ export async function PUT(request: Request) {
     const API_KEY = "nhebmum6ll3aeirxkoa0djqscqckyjn3";
     const SECRET_KEY = "9clfsi0vrhrbzwupeojrymau";
 
+    const targetOrderId = String(body.id || body.orderId || "DC-1");
+    const targetPhone = String(body.phone || "");
+
     const payload = {
-      invoice: String(body.id || "DC-1"),
+      invoice: targetOrderId,
       recipient_name: body.name,
-      recipient_phone: body.phone,
+      recipient_phone: targetPhone,
       recipient_address: body.address,
-      cod_amount: Number(body.totalPrice || 0),
+      cod_amount: Number(body.totalPrice || body.collectionAmount || 0),
     };
 
     const steadfastRes = await fetch(
@@ -89,14 +92,15 @@ export async function PUT(request: Request) {
         result.consignment?.consignment_id || result.consignment_id || "1",
       );
 
-      // কুরিয়ারে বুকিং সফল হওয়ার পর গুগল শিটে স্ট্যাটাস এবং ট্র্যাকিং আইডি আপডেট করা
+      // কুরিয়ারে বুকিং সফল হওয়ার পর গুগল শিটে Order ID এবং Phone উভয় দিয়েই স্ট্যাটাস ও ট্র্যাকিং আইডি আপডেট করা
       try {
         await fetch(GOOGLE_SHEET_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "update_order_status",
-            phone: body.phone,
+            orderId: targetOrderId,
+            phone: targetPhone,
             status: "Booked",
             trackingCode: consignmentId,
           }),
